@@ -17,31 +17,29 @@ url = "https://sudoku.com/fr/evil/"
 def predict_digit(img):
 
     #### LOAD TRAINED MODEL ####
-    samples = np.loadtxt("generalsamples.data", np.float32)
-    responses = np.loadtxt("generalresponses.data", np.float32)
+    samples = np.loadtxt("IA/generalsamples.data", np.float32)
+    responses = np.loadtxt("IA/generalresponses.data", np.float32)
     responses = responses.reshape((responses.size, 1))
-    ##########################
 
     model = cv2.ml.KNearest_create()
     model.train(samples, cv2.ml.ROW_SAMPLE, responses)
+    ##########################
 
-    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    thresh = cv2.adaptiveThreshold(gray,255,1,1,11,2)
-    out = np.zeros(img.shape,np.uint8)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    thresh = cv2.adaptiveThreshold(gray, 255, 1, 1, 11, 2)
     nbr = 0;
     contours, hierarchy = cv2.findContours(thresh,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
     for cnt in contours:
         if cv2.contourArea(cnt) > 50:
-            [x,y,w,h] = cv2.boundingRect(cnt)
+            [x, y, w, h] = cv2.boundingRect(cnt)
             if  h > 28:
                 cv2.rectangle(img, (x, y), (x + w, y + h),(0, 255, 0), 2)
-                roi = thresh[y:y+h,x:x+w]
+                roi = thresh[y:y + h, x:x + w]
                 roismall = cv2.resize(roi,(10,10))
                 roismall = roismall.reshape((1,100))
                 roismall = np.float32(roismall)
                 retval, results, neigh_resp, dists = model.findNearest(roismall, k = 1)
                 nbr = int((results[0][0]))
-                cv2.putText(out,str(nbr),(x,y+h),0,1,(0,255,0))
     return nbr;
 
 def get_board_image(driver):
@@ -49,34 +47,23 @@ def get_board_image(driver):
     driver.maximize_window()
 
     # wait for the page to load
-    sleep(5)
+    sleep(4)
 
     canvas = driver.find_element(by=By.TAG_NAME, value="canvas")
-
-    # get the canvas as a PNG base64 string
     canvas_base64 = driver.execute_script("return arguments[0].toDataURL('image/png').substring(21);", canvas)
-
     canvas_png = base64.b64decode(canvas_base64)
 
-    try:
-        remove("canvas.png")
-    except:
-        pass
+    return canvas, canvas_png
 
-    # sleep(2)
-    # save to a file
-    f = open("canvas.png", "wb")
-    f.write(canvas_png)
-    f.close()
-    # driver.quit()
-
-    return canvas
-
-def get_board_value():
+def get_board_value(img):
     size = 111
 
-    sleep(6)
-    img = cv2.imread('canvas.png')
+    # comvert png to matrice
+    img = np.frombuffer(img, dtype=np.uint8)  
+    img = cv2.imdecode(img, flags=cv2.IMREAD_COLOR)
+
+    if (not np.any(img)):
+        raise Exception("Image not found")
 
     for i in range(1, 10):
         for j in range(1, 10):
@@ -106,8 +93,7 @@ def get_key(number):
     elif (number == 9):
         return Keys.NUMPAD9
 
-def Update_slot(action, x, y, number):
-    offset = 33
+def update_slot(action, number):
     key = get_key(number)
 
     action.send_keys(key).perform()    
@@ -151,38 +137,25 @@ def solve():
                     tab[x][y] = 0
                 return False
 
-def print_board(board):
-    for i in range(9):
-        for j in range(9):
-            print(board[i][j], end=" ")
-            if j % 3 == 2:
-                print(" ", end=" ")
-        if (i % 3 == 2):
-            print()
-        print("")
-
 def main():
-    driver = webdriver.Firefox()
-    action = webdriver.ActionChains(driver)
-    canvas = get_board_image(driver)
-    action.move_to_element(canvas).click().perform()
-    action.move_by_offset(-230, -230).click().perform()
-    get_board_value()
-    solve()
+    try:
+        driver = webdriver.Firefox()
+        action = webdriver.ActionChains(driver)
+        canvas, canvas_png = get_board_image(driver)
+        action.move_to_element(canvas).click().perform()
+        action.move_by_offset(-230, -230).click().perform()
+        get_board_value(canvas_png)
+        solve()
 
-    print_board(tab)
-    print("--------------")
-    print_board(ref)
-    for i in range(9):
-        for j in range(9):
-            if ref[i][j] == 0:
-                Update_slot(action, i, j, tab[i][j])
-            action.move_by_offset(55, 0).click().perform()
-        action.move_by_offset(-495, 55).click().perform()
+        for i in range(9):
+            for j in range(9):
+                if ref[i][j] == 0:
+                    update_slot(action, tab[i][j])
+                action.move_by_offset(55, 0).click().perform()
+            action.move_by_offset(-495, 55).click().perform()
+    except Exception as e:
+        print(e)
+        driver.quit()
 
-    # cv2.destroyAllWindows()
-    # print("\n")
-    # print("Sudoku to solve:")
-    # print("Sudoku solved:")
 
 main()
