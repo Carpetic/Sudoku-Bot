@@ -47,7 +47,7 @@ def get_board_image(driver):
     driver.maximize_window()
 
     # wait for the page to load
-    sleep(4)
+    sleep(5)
 
     canvas = driver.find_element(by=By.TAG_NAME, value="canvas")
     canvas_base64 = driver.execute_script("return arguments[0].toDataURL('image/png').substring(21);", canvas)
@@ -56,7 +56,7 @@ def get_board_image(driver):
     return canvas, canvas_png
 
 def get_board_value(img):
-    size = 111
+    size = 222
 
     # comvert png to matrice
     img = np.frombuffer(img, dtype=np.uint8)  
@@ -68,10 +68,29 @@ def get_board_value(img):
     for i in range(1, 10):
         for j in range(1, 10):
             crop_img = img[(i - 1) * size: i * size, (j - 1) * size: j * size]
-            crop_img = crop_img[10:100, 10:100]
+            crop_img = crop_img[10:200, 10:200]
             tab[i - 1][j - 1] = predict_digit(crop_img)
             ref[i - 1][j - 1] = tab[i - 1][j - 1]
     
+def inttostr(number):
+    if (number == 1):
+        return "1"
+    elif (number == 2):
+        return "2"
+    elif (number == 3):
+        return "3"
+    elif (number == 4):
+        return "4"
+    elif (number == 5):
+        return "5"
+    elif (number == 6):
+        return "6"
+    elif (number == 7):
+        return "7"
+    elif (number == 8):
+        return "8"
+    elif (number == 9):
+        return "9"
 
 def get_key(number):
     if (number == 1):
@@ -146,7 +165,6 @@ def main():
         action.move_by_offset(-230, -230).click().perform()
         get_board_value(canvas_png)
         solve()
-
         for i in range(9):
             for j in range(9):
                 if ref[i][j] == 0:
